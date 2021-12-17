@@ -1,3 +1,5 @@
+from random import randint
+
 import numpy as np
 import math
 
@@ -35,22 +37,22 @@ def cal_pop_fitness(production_consumption, pop, G, node_type):
     for i in range(pop.shape[0]):
         road_length = 0
         remains = 0
-        cities_count = 0
-        for k in range(pop.shape[1]):
-            if node_type[int(pop[i][k])] == 'city':
-                cities_count += 1
         for j in range(pop.shape[1]):
+            # Считаем длину дороги
             if j < pop.shape[1] - 1:
                 road_length += G[int(pop[i][j])][int(pop[i][j + 1])]
-            if node_type[int(pop[i][j])] == 'factory' and cities_count > 0:
+            else:
+                road_length += G[int(pop[i][j])][int(pop[i][0])]
+
+            # Считаем приспособленность
+            if node_type[int(pop[i][j])] == 'factory':
                 remains = remains + production_consumption[int(pop[i][j])]
             elif remains > production_consumption[int(pop[i][j])] + production_consumption[int(pop[i][j])] * 0.1:
                 remains -= production_consumption[int(pop[i][j])]
-                cities_count -= 1
             else:
-                cities_count -= 1
+                remains *= 100
         print(road_length, remains)
-        fitness[i] = road_length + remains * 10
+        fitness[i] = road_length + remains
 
     return fitness
 
@@ -82,3 +84,33 @@ def crossover(parents, offspring_size):
         offspring[k, crossover_point:] = np.union1d(unique_second_parent, unique_remain)
 
     return offspring
+
+
+def mutation(mut_percent, offspring_crossover):
+    for i in range(offspring_crossover.shape[0]):
+        if randint(0, 100) < mut_percent:
+            offspring1_idx = randint(0, offspring_crossover.shape[1])
+            offspring2_idx = randint(0, offspring_crossover.shape[1])
+
+            while offspring1_idx == offspring2_idx:
+                offspring2_idx = randint(0, offspring_crossover.shape[1])
+
+            swap_offspring = offspring_crossover[i][offspring1_idx]
+            offspring_crossover[i][offspring1_idx] = offspring_crossover[i][offspring2_idx]
+            offspring_crossover[i][offspring2_idx] = swap_offspring
+
+    return offspring_crossover
+
+def sort_population(after_mut_pop, G):
+    graph_map = []
+    for i in range(after_mut_pop.shape[0]):
+        road_length = 0
+        for j in range(after_mut_pop.shape[1]):
+            # Считаем длину дороги
+            if j < after_mut_pop.shape[1] - 1:
+                road_length += G[int(after_mut_pop[i][j])][int(after_mut_pop[i][j + 1])]
+            else:
+                road_length += G[int(after_mut_pop[i][j])][int(after_mut_pop[i][0])]
+        graph_map.append((i, road_length))
+
+
