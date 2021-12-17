@@ -51,9 +51,12 @@ def cal_pop_fitness(production_consumption, pop, G, node_type):
                 remains -= production_consumption[int(pop[i][j])]
             else:
                 remains *= 100
-        print(road_length, remains)
         fitness[i] = road_length + remains
+        print(i, "   ", fitness[i])
 
+    print(pop)
+    print()
+    print()
     return fitness
 
 
@@ -101,16 +104,23 @@ def mutation(mut_percent, offspring_crossover):
 
     return offspring_crossover
 
+
 def sort_population(after_mut_pop, G):
-    graph_map = []
-    for i in range(after_mut_pop.shape[0]):
-        road_length = 0
+    for i in range(after_mut_pop.shape[0] - 1):
+        road_length_1 = 0
+        road_length_2 = 0
         for j in range(after_mut_pop.shape[1]):
             # Считаем длину дороги
             if j < after_mut_pop.shape[1] - 1:
-                road_length += G[int(after_mut_pop[i][j])][int(after_mut_pop[i][j + 1])]
+                road_length_1 += G[int(after_mut_pop[i][j])][int(after_mut_pop[i][j + 1])]
+                road_length_2 += G[int(after_mut_pop[i + 1][j])][int(after_mut_pop[i + 1][j + 1])]
             else:
-                road_length += G[int(after_mut_pop[i][j])][int(after_mut_pop[i][0])]
-        graph_map.append((i, road_length))
+                road_length_1 += G[int(after_mut_pop[i][j])][int(after_mut_pop[i][0])]
+                road_length_2 += G[int(after_mut_pop[i + 1][j])][int(after_mut_pop[i + 1][0])]
 
+        if road_length_1 > road_length_2:
+            temp = after_mut_pop[i][:]
+            after_mut_pop[i][:] = after_mut_pop[i + 1][:]
+            after_mut_pop[i + 1][:] = temp
 
+    return after_mut_pop
