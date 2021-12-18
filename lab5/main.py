@@ -1,39 +1,80 @@
 import math
+from random import randint, uniform
+from factory import Factory
+from city import City
 import numpy as np
 import genetic as ga
 
-inf = 900
-
 #     A     B     C    D
-G = ((0,   10,    2,   4),  #A
-     (10,   0,   inf,  15), #B
-     (2,   inf,   0,   3),  #C
-     (4,   15,    3,   0))  #D
+G = ((1, 10, 2, 4, 3, 2),  # A
+     (10, 1, 6, 15, 1, 5),  # B
+     (2, 6, 6, 3, 9, 1),  # C
+     (4, 15, 3, 6, 5, 6))  # D
 
-mutation_percent = 0.15
-production_consumption = [3, 20, 7, 12]
-node_type = ['factory', 'factory', 'city', 'city']
-num_nodes = len(G)
-num_chrom = math.factorial(num_nodes - 1)
-num_parents_mating = 2
-pop_size = (num_chrom, num_nodes)
-best_result = []
+mutation_possibility = 0.15
+NUM_OF_FACTORIES = 4
+NUM_OF_CITIES = 6
+NUM_OF_GENERATIONS = 5
+NUM_OF_POPULATION = 5
+PRODUCTION_SUPPORT_VALUE = randint(20, 70)
 
-print("Количесвто поколений:")
-num_generates = int(input())
 
-for i in range(num_generates):
-     new_population = ga.generate_pop(num_chrom, num_nodes, 0)
-     fitness = ga.cal_pop_fitness(production_consumption, new_population, G, node_type)
-     parents = ga.select_mating_pool(new_population, fitness, num_parents_mating)
-     crossover = ga.crossover(parents, (parents.shape[0], num_nodes))
-     mut_offspring = ga.mutation(mutation_percent, crossover)
+def generate_cities():
+    cities = []
+    for j in range(NUM_OF_CITIES):
+        lower_bound = PRODUCTION_SUPPORT_VALUE / NUM_OF_CITIES * 0.75
+        higher_bound = PRODUCTION_SUPPORT_VALUE / NUM_OF_CITIES * 1.25
+        cities.append(City(uniform(lower_bound, higher_bound), j))
 
-     after_mut_pop = np.vstack((new_population, mut_offspring))
-     sorted_population = ga.sort_population(after_mut_pop, G)
-     sorted_population = sorted_population[0:num_chrom][:]
+    return cities
 
-     fitness = ga.cal_pop_fitness(production_consumption, sorted_population, G, node_type)
-     best_result = ga.select_mating_pool(sorted_population, fitness, 1)
 
-print(best_result)
+def generate_factories():
+    factories = []
+    for j in range(NUM_OF_FACTORIES):
+        lower_bound = PRODUCTION_SUPPORT_VALUE / NUM_OF_FACTORIES * 0.75
+        higher_bound = PRODUCTION_SUPPORT_VALUE / NUM_OF_FACTORIES * 1.25
+        factories.append(Factory(uniform(lower_bound, higher_bound), j))
+
+    return factories
+
+
+def generate_chromosomes(factories):
+    population = []
+    for i in range(NUM_OF_POPULATION):
+        chromosome = []
+        for j in range(NUM_OF_FACTORIES):
+            genes = []
+            for k in range(NUM_OF_CITIES):
+                genes.append(factories[j].production / NUM_OF_CITIES * (1 + 0.15 * randint(-1,1)))
+            chromosome.append(genes)
+        population.append(chromosome)
+
+    return population
+
+
+def fitness(population, factories, cities):
+    fitness = np.empty((len(population[0])))
+
+    for i in range(len(population)):
+        chromosomes = population[i]
+        for j in range(len(chromosomes)):
+            remains = 0
+            genes = chromosomes[j]
+            for k in range(len(genes)):
+                fitness[j] += genes[k] * G[j][k]
+                remains += genes[k]
+
+                if remains > cities[k].consumption * 1.1:
+                    fitness[j] += 500
+            if remains > factories[j].production:
+                    fitness[j] += 500
+
+
+    return fitness
+
+
+cities = generate_cities()
+factories = generate_factories()
+population = generate_chromosomes(factories)
+fitness(population, factories, cities)
