@@ -1,3 +1,4 @@
+import copy
 import math
 from bitarray import bitarray
 from timeit import default_timer as timer
@@ -17,7 +18,8 @@ class BloomFilter(object):
         simple_number = 31
         hash = 0
         for i in range(len(item)):
-            hash = (simple_number * hash + index + ord(item[i])) % self.size
+            hash += (simple_number * hash + index + ord(item[i]))
+            hash %= self.size
         return hash
 
     def add(self, item):
@@ -31,20 +33,37 @@ class BloomFilter(object):
         return False
 
 
-def bloom_filter_analyzer(data, search_word):
+def bloom_filter_analyzer(data1, data2, search_word):
     false_possibility = float(input("Введите вероятность ложного срабатывания: "))
-    number_expected_elements = len(data)
 
-    filter = BloomFilter(false_possibility=false_possibility, number_expected_elements=number_expected_elements)
+    number_expected_elements = len(data1)
+    filter1 = BloomFilter(false_possibility=false_possibility, number_expected_elements=number_expected_elements)
+    number_expected_elements = len(data1) + len(data2)
+    filter2 = BloomFilter(false_possibility=false_possibility, number_expected_elements=number_expected_elements)
 
-    for element in set(data):
-        filter.add(element)
+    for element in data1:
+        filter1.add(element)
+        filter2.add(element)
+
+    for element in data2:
+        filter2.add(element)
+
+    ufilter = unite_filters(filter1, filter2)
 
     start = timer()
-    if filter.notExist(search_word):
+    if ufilter.notExist(search_word):
         result = f"Фильтр Блума: {search_word} не существует\n"
     else:
         result = f"Фильтр Блума: {search_word} возможно существует\n"
     end = timer()
     result += f"Потрачено: {(end - start):.6f} секунд\n\n"
+    return result
+
+
+def unite_filters(bloom1, bloom2):
+    result = copy.deepcopy(bloom1)
+    for i in range(len(result.bloom_filter)):
+        if(bloom2.bloom_filter[i]) == 1:
+            result.bloom_filter[i] = 1
+
     return result

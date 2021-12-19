@@ -1,126 +1,90 @@
 from random import randint
-
 import numpy as np
-import math
 
 
-def generate_pop(num_chrom, num_nodes, start_node):
-    if num_chrom > math.factorial(num_nodes - 1):
-        pop = np.zeros((math.factorial(num_nodes - 1), num_nodes))
-    else:
-        pop = np.zeros((num_chrom, num_nodes))
+def generate_pop(NUM_OF_POPULATION, NUM_OF_FACTORIES, NUM_OF_CITIES, factories):
+    population = []
+    for i in range(NUM_OF_POPULATION):
+        chromosome = []
+        for j in range(NUM_OF_FACTORIES):
+            genes = []
+            for k in range(NUM_OF_CITIES):
+                genes.append(factories[j].production / NUM_OF_CITIES * (1 + 0.15 * randint(-1, 1)))
+            chromosome.append(genes)
+        population.append(chromosome)
 
-    new_chrom = np.arange(num_nodes)
-    for i in range(pop.shape[0]):
-        np.random.shuffle(new_chrom)
-        if new_chrom[0] != start_node:
-            start_index = np.where(new_chrom == start_node)
-            temp = new_chrom[0]
-            new_chrom[0] = new_chrom[start_index]
-            new_chrom[start_index] = temp
-
-        while new_chrom.tolist() in pop.tolist():
-            np.random.shuffle(new_chrom)
-            if new_chrom[0] != start_node:
-                start_index = np.where(new_chrom == start_node)
-                temp = new_chrom[0]
-                new_chrom[0] = new_chrom[start_index]
-                new_chrom[start_index] = temp
-
-        pop[i] = new_chrom
-
-    return pop
+    return population
 
 
-def cal_pop_fitness(production_consumption, pop, G, node_type):
-    fitness = np.empty(pop.shape[0])
-    for i in range(pop.shape[0]):
-        road_length = 0
-        remains = 0
-        for j in range(pop.shape[1]):
-            # Считаем длину дороги
-            if j < pop.shape[1] - 1:
-                road_length += G[int(pop[i][j])][int(pop[i][j + 1])]
-            else:
-                road_length += G[int(pop[i][j])][int(pop[i][0])]
+def cal_pop_fitness(population, cities, factories, G):
+    fitness = np.zeros((len(population)))
 
-            # Считаем приспособленность
-            if node_type[int(pop[i][j])] == 'factory':
-                remains = remains + production_consumption[int(pop[i][j])]
-            elif remains > production_consumption[int(pop[i][j])] + production_consumption[int(pop[i][j])] * 0.1:
-                remains -= production_consumption[int(pop[i][j])]
-            else:
-                remains *= 100
-        fitness[i] = road_length + remains
-        print(i, "   ", fitness[i])
+    for i in range(len(population)):
+        chromosome = population[i]
+        for j in range(len(chromosome)):
+            gene = chromosome[j]
+            for k in range(len(gene)):
+                fitness[i] += gene[k] * G[j][k]
+                if gene[k] > cities[k].consumption * 1.1:
+                    fitness[i] += fitness[i] * (abs(gene[k] - cities[k].consumption * 1.1) / 10)
+                if gene[k] > factories[j].production:
+                    fitness[i] += 500
 
-    print(pop)
-    print()
-    print()
     return fitness
 
 
 def select_mating_pool(pop, fitness, num_parents):
-    parents = np.empty((num_parents, pop.shape[1]))
+    min_fitness = np.copy(fitness)
+    population = np.array(pop)
+    parents = np.zeros((num_parents, population.shape[1], population.shape[2]))
     for parent_num in range(num_parents):
-        max_fitness_index = np.where(fitness == np.min(fitness))[0][0]
-        parents[parent_num, :] = pop[max_fitness_index, :]
-        fitness[max_fitness_index] = 99999999999
+        min_fitness_index = np.where(min_fitness == np.min(min_fitness))[0][0]
+        parents[parent_num] = pop[min_fitness_index]
+        min_fitness[min_fitness_index] = 99999999999
 
     return parents
 
 
-def crossover(parents, offspring_size):
-    offspring = np.zeros(offspring_size)
-    crossover_point = np.uint8(offspring_size[1] / 2)
+def crossover(parents):
+    offspring = np.zeros(parents.shape)
+    crossover_point = np.uint8(offspring.shape[1] / 2)
 
-    for k in range(offspring_size[0]):
+    for k in range(offspring.shape[0]):
         parent1_idx = k % parents.shape[0]
         parent2_idx = (k + 1) % parents.shape[0]
-        offspring[k, 0:crossover_point] = parents[parent1_idx, 0:crossover_point]
-
-        unique_second_parent = np.setdiff1d(parents[parent2_idx, crossover_point:], offspring[k, 0:crossover_point])
-        unique_union = np.union1d(offspring[k, 0:crossover_point], unique_second_parent)
-        unique_remain = np.setdiff1d(parents[parent1_idx, :], unique_union)
-
-        np.setdiff1d(parents[parent2_idx, crossover_point:], offspring[k, 0:crossover_point])
-        offspring[k, crossover_point:] = np.union1d(unique_second_parent, unique_remain)
+        offspring[k, 0:crossover_point, :] = parents[parent1_idx, 0:crossover_point, :]
+        offspring[k, crossover_point:, :] = parents[parent2_idx, crossover_point:, :]
 
     return offspring
 
 
-def mutation(mut_percent, offspring_crossover):
-    for i in range(offspring_crossover.shape[0]):
-        if randint(0, 100) < mut_percent:
-            offspring1_idx = randint(0, offspring_crossover.shape[1])
-            offspring2_idx = randint(0, offspring_crossover.shape[1])
+def mutation(mut_percent, childs):
+    for i in range(childs.shape[0]):
+        if randint(0, 100) < mut_percent * 100:
+            child1_idx = randint(1, childs.shape[1]) - 1
+            child2_idx = randint(1, childs.shape[1]) - 1
 
-            while offspring1_idx == offspring2_idx:
-                offspring2_idx = randint(0, offspring_crossover.shape[1])
+            while child1_idx == child2_idx:
+                child2_idx = randint(1, childs.shape[1]) - 1
 
-            swap_offspring = offspring_crossover[i][offspring1_idx]
-            offspring_crossover[i][offspring1_idx] = offspring_crossover[i][offspring2_idx]
-            offspring_crossover[i][offspring2_idx] = swap_offspring
+            swap_offspring = childs[i][child1_idx][:]
+            childs[i][child1_idx][:] = childs[i][child2_idx][:]
+            childs[i][child2_idx][:] = swap_offspring
 
-    return offspring_crossover
+    return childs
 
 
-def sort_population(after_mut_pop, G):
-    for i in range(after_mut_pop.shape[0] - 1):
-        road_length_1 = 0
-        road_length_2 = 0
-        for j in range(after_mut_pop.shape[1]):
-            # Считаем длину дороги
-            if j < after_mut_pop.shape[1] - 1:
-                road_length_1 += G[int(after_mut_pop[i][j])][int(after_mut_pop[i][j + 1])]
-                road_length_2 += G[int(after_mut_pop[i + 1][j])][int(after_mut_pop[i + 1][j + 1])]
-            else:
-                road_length_1 += G[int(after_mut_pop[i][j])][int(after_mut_pop[i][0])]
-                road_length_2 += G[int(after_mut_pop[i + 1][j])][int(after_mut_pop[i + 1][0])]
+def sort_population(pop, fitness, num_of_parents, childs):
+    population = np.array(pop)
+    sorting_fitness = np.copy(fitness)
+    sorted_indexes = np.zeros(fitness.shape)
+    new_population = np.zeros((population.shape[0] - num_of_parents, population.shape[1], population.shape[2]))
+    for i in range(sorting_fitness.shape[0]):
+        sorted_indexes[i] = np.argmax(sorting_fitness)
+        sorting_fitness = np.where(sorting_fitness == np.max(sorting_fitness), -99999999999, sorting_fitness)
 
-        if road_length_1 > road_length_2:
-            temp = after_mut_pop[i][:]
-            after_mut_pop[i][:] = after_mut_pop[i + 1][:]
-            after_mut_pop[i + 1][:] = temp
+    for i in range(new_population.shape[0]):
+        index = sorted_indexes[i]
+        new_population[i][:][:] = population[int(index)][:][:]
 
-    return after_mut_pop
+    return np.vstack((new_population, childs))
