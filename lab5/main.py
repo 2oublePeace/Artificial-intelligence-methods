@@ -1,8 +1,4 @@
 from random import randint, uniform
-
-import numpy as np
-from matplotlib import pyplot as plt
-
 from factory import Factory
 from city import City
 import genetic as ga
@@ -48,17 +44,8 @@ cities = generate_cities()
 factories = generate_factories()
 population = ga.generate_pop(NUM_OF_POPULATION, NUM_OF_FACTORIES, NUM_OF_CITIES, factories)
 
-mean_fitnesses = []
-min_fitnesses = []
 for i in range(NUM_OF_GENERATIONS):
     fitness = ga.cal_pop_fitness(population, cities, factories, G)
     parents = ga.select_mating_pool(population, fitness, NUM_OF_PARENTS)
     childs = ga.mutation(MUTATION_POSSIBILITY, ga.crossover(parents))
     population = ga.sort_population(population, fitness, NUM_OF_PARENTS, childs)
-    min_fitnesses.append(np.min(fitness))
-
-plt.plot(min_fitnesses)
-plt.xlabel('Поколение')
-plt.ylabel('Минимальная приспособленность')
-plt.title('График минимальных значений приспособленности')
-plt.show()
